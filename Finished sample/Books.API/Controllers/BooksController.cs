@@ -26,23 +26,27 @@ public class BooksController : ControllerBase
             throw new ArgumentNullException(nameof(logger));
     }
 
-
+    // NB: surprisingly even this non-streaming version has the "Transfer-Encoding: chunked" header in the HTTP response
     [HttpGet("books")]
     [TypeFilter(typeof(BooksResultFilter))]
     public IActionResult GetBooks_BadCode()
     { 
         var bookEntities = _booksRepository.GetBooksAsync().Result;
+        Console.WriteLine($"[{DateTime.Now.TimeOfDay}] Returning all {bookEntities.Count()} books");
         return Ok(bookEntities);
     }
 
+    // NB: full controller action url: http://localhost:5149/api/booksstream
+    // Yes this HTTP connection stays open for several seconds, and the response has the "Transfer-Encoding: chunked" header
+    // in the HTTP response, however even the non-streaming version of this (=GetBooks_BadCode()) has it, surprisingly.
     [HttpGet("booksstream")]
     public async IAsyncEnumerable<BookDto> StreamBooks()
     {
-        await foreach (var bookFromRepository in
-            _booksRepository.GetBooksAsAsyncEnumerable())
+        await foreach (var bookFromRepository in _booksRepository.GetBooksAsAsyncEnumerable())
         {      
             // add a delay to visually see the effect
-            await Task.Delay(500);
+            await Task.Delay(2000);
+            Console.WriteLine($"[{DateTime.Now.TimeOfDay}] Returning book entitled: {bookFromRepository.Title}");
             yield return _mapper.Map<BookDto>(bookFromRepository); ;
         }
     }
